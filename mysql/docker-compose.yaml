@@ -1,0 +1,28 @@
+version: '3'
+services:
+  python:
+    container_name: language-study.python
+    image: language-study-mysql:python
+    command: /bin/sh -c - "while :; do sleep 10; done"
+    environment:
+      TZ: 'Asia/Tokyo'
+  mysql:
+    container_name: language-study.mysql
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: vmu71FJ7Y6vB
+      MYSQL_DATABASE: study
+      MYSQL_USER: walk8243
+      MYSQL_PASSWORD: shLG425x
+      TZ: 'Asia/Tokyo'
+  client:
+    container_name: language-study.mysql-client
+    image: mariadb:latest
+    command: /bin/sh -c - "while :; do mysqladmin -hmysql -pvmu71FJ7Y6vB ping 2>/dev/null; if [ $$? -eq 0 ]; then cat /tmp/ddl/table.sql | mysql -hmysql -Dstudy -pvmu71FJ7Y6vB; break; fi ; sleep 1; done"
+    environment:
+      TZ: 'Asia/Tokyo'
+    links:
+      - mysql
+    volumes:
+      - ./ddl:/tmp/ddl:ro
