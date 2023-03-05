@@ -31,3 +31,14 @@ pip freeze > requirements.txt
 # インストール
 pip install -r requirements.txt
 ```
+
+## インストール
+
+### Windowsの場合
+
+1. [Microsoft store](https://apps.microsoft.com/store/search?hl=ja-jp&gl=jp&publisher=Python%20Software%20Foundation) でPythonを検索
+2. インストールしたいPythonのバージョンをインストール
+3. Windowsの検索窓を開く
+  - ショートカットキー: Windowsキー + S
+4. 「アプリ実行エイリアスの管理」を検索
+5. 2でインストールしたバージョンのPythonとそれに付随するpipを有効にする
