@@ -1,8 +1,8 @@
 export const Position = {
-	TOP: Symbol('Position.top'),
-	BOTTOM: Symbol('Position.bottom'),
-	LEFT: Symbol('Position.left'),
-	RIGHT: Symbol('Position.right'),
+	TOP: 0,
+	BOTTOM: 1,
+	LEFT: 2,
+	RIGHT: 3,
 } as const;
 type Position = (typeof Position)[keyof typeof Position];
 
@@ -16,7 +16,5 @@ export const toJapanese = (position: Position): string => {
 			return '左';
 		case Position.RIGHT:
 			return '右';
-		default:
-			return '';
 	}
 }
