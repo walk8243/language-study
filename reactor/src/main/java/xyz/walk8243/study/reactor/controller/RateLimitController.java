@@ -1,15 +1,14 @@
 package xyz.walk8243.study.reactor.controller;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import xyz.walk8243.study.reactor.domain.RateLimitedHandler;
 
 @RestController
 public class RateLimitController {
@@ -19,36 +18,19 @@ public class RateLimitController {
     public Flux<ApiResponse> getRateLimitedData() {
         log("Starting rate-limited API calls...");
         // ★★★次にAPI呼び出しを開始して良い時刻を管理する★★★
-        final AtomicReference<Instant> nextCallTime = new AtomicReference<>(Instant.now());
+        final RateLimitedHandler handler = new RateLimitedHandler(RATE_LIMIT_INTERVAL);
 
         // 最初のページから開始
-        return rateLimitedApiCall(1, nextCallTime)
+        return handler.execute(() -> callApi(1))
                 .expand(previousResponse -> {
                     if (previousResponse.nextPage().isEmpty()) {
                         return Mono.empty(); // 次のページがなければ終了
                     }
 
                     // ★ expand内の再帰呼び出しでも同じヘルパーメソッドを使用
-                    return rateLimitedApiCall(previousResponse.nextPage().get(), nextCallTime);
+                    return handler.execute(() -> callApi(previousResponse.nextPage().get()));
                 })
                 .doOnComplete(() -> log("Completed all API calls."));
-    }
-
-    // ★★★ レート制御を行う処理をこのメソッドに集約 ★★★
-    private Mono<ApiResponse> rateLimitedApiCall(int page, AtomicReference<Instant> nextCallTime) {
-        // Mono.deferを使い、実際に購読されるまで時刻計算を遅延させるのがポイント
-        return Mono.defer(() -> {
-            Instant now = Instant.now();
-            Instant scheduledTime = nextCallTime.getAndUpdate(prev -> {
-                Instant newStartTime = prev.isAfter(now) ? prev : now;
-                return newStartTime.plus(RATE_LIMIT_INTERVAL);
-            });
-            Duration delay = Duration.between(now, scheduledTime);
-            if (delay.isNegative()) {
-                delay = Duration.ZERO;
-            }
-            return Mono.delay(delay).then(callApi(page));
-        });
     }
 
     // 擬似的なAPI呼び出し (ランダムな時間がかかる)
