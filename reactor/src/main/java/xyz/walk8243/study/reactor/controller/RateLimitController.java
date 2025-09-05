@@ -22,39 +22,37 @@ public class RateLimitController {
         final AtomicReference<Instant> nextCallTime = new AtomicReference<>(Instant.now());
 
         // 最初のページから開始
-        return Flux.just(new ApiResponse(0, 1))
-                .expand(apiResponse -> {
-                    if (apiResponse.nextPage().isEmpty()) {
+        return rateLimitedApiCall(1, nextCallTime)
+                .expand(previousResponse -> {
+                    if (previousResponse.nextPage().isEmpty()) {
                         return Mono.empty(); // 次のページがなければ終了
                     }
 
-                    // --- ここからが修正ロジック ---
-                    Instant now = Instant.now();
-
-                    // 1. 次に呼び出すべき時刻を計算して、アトミックに更新する
-                    Instant scheduledTime = nextCallTime.getAndUpdate(prev -> {
-                        // 前の予定時刻が現在より後なら、その時刻を基準にする
-                        // そうでなければ（処理が遅延した場合）、現在時刻を基準にする
-                        Instant newStartTime = prev.isAfter(now) ? prev : now;
-                        // 基準時刻にインターバルを加算したものが、"次"の呼び出し時刻
-                        return newStartTime.plus(RATE_LIMIT_INTERVAL);
-                    });
-
-                    // 2. 今から呼び出し予定時刻まで、どれだけ待つべきか計算
-                    Duration delay = Duration.between(now, scheduledTime);
-                    if (delay.isNegative()) {
-                        delay = Duration.ZERO; // 予定時刻を過ぎていたら待たない
-                    }
-
-                    // 3. 計算した時間だけ待ってから、APIを呼び出すMonoを返す
-                    return Mono.delay(delay)
-                            .then(callApi(apiResponse.nextPage().get())); // .then()でdelayの完了後にAPIを呼び出す
+                    // ★ expand内の再帰呼び出しでも同じヘルパーメソッドを使用
+                    return rateLimitedApiCall(previousResponse.nextPage().get(), nextCallTime);
                 })
                 .doOnComplete(() -> log("Completed all API calls."));
     }
 
+    // ★★★ レート制御を行う処理をこのメソッドに集約 ★★★
+    private Mono<ApiResponse> rateLimitedApiCall(int page, AtomicReference<Instant> nextCallTime) {
+        // Mono.deferを使い、実際に購読されるまで時刻計算を遅延させるのがポイント
+        return Mono.defer(() -> {
+            Instant now = Instant.now();
+            Instant scheduledTime = nextCallTime.getAndUpdate(prev -> {
+                Instant newStartTime = prev.isAfter(now) ? prev : now;
+                return newStartTime.plus(RATE_LIMIT_INTERVAL);
+            });
+            Duration delay = Duration.between(now, scheduledTime);
+            if (delay.isNegative()) {
+                delay = Duration.ZERO;
+            }
+            return Mono.delay(delay).then(callApi(page));
+        });
+    }
+
     // 擬似的なAPI呼び出し (ランダムな時間がかかる)
-    public Mono<ApiResponse> callApi(int page) {
+    private Mono<ApiResponse> callApi(int page) {
         return Mono.fromCallable(() -> {
             long processingTime = 50 + (long) (Math.random() * 300); // 50ms〜350msの処理時間
             log("Calling API for page %d (processing will take %d ms)".formatted(page, processingTime));
