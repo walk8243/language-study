@@ -19,7 +19,7 @@ public class CallApiRepository {
 	public Mono<ApiResponse> callApi(int page) {
 		return Mono.fromCallable(() -> {
 			long processingTime = 50 + (long) (Math.random() * 300); // 50ms〜350msの処理時間
-			Logger.log("Calling API for page %d (processing will take %d ms)".formatted(page, processingTime));
+			Logger.log("[%s] Calling API for page %d (processing will take %d ms)".formatted(Thread.currentThread().getName(), page, processingTime));
 			Thread.sleep(processingTime);
 
 			if (page < 5) {
