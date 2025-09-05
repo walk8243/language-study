@@ -17,6 +17,7 @@ public class RateLimitController {
 
     @GetMapping("/rate-limit")
     public Flux<ApiResponse> getRateLimitedData() {
+        log("Starting rate-limited API calls...");
         // ★★★次にAPI呼び出しを開始して良い時刻を管理する★★★
         final AtomicReference<Instant> nextCallTime = new AtomicReference<>(Instant.now());
 
@@ -48,15 +49,15 @@ public class RateLimitController {
                     // 3. 計算した時間だけ待ってから、APIを呼び出すMonoを返す
                     return Mono.delay(delay)
                             .then(callApi(apiResponse.nextPage().get())); // .then()でdelayの完了後にAPIを呼び出す
-                });
+                })
+                .doOnComplete(() -> log("Completed all API calls."));
     }
 
     // 擬似的なAPI呼び出し (ランダムな時間がかかる)
     public Mono<ApiResponse> callApi(int page) {
         return Mono.fromCallable(() -> {
             long processingTime = 50 + (long) (Math.random() * 300); // 50ms〜350msの処理時間
-            System.out.printf("[%-18s] Calling API for page %d (processing will take %d ms)\n",
-                    LocalTime.now(), page, processingTime);
+            log("Calling API for page %d (processing will take %d ms)".formatted(page, processingTime));
             Thread.sleep(processingTime);
 
             if (page < 5) {
@@ -65,6 +66,10 @@ public class RateLimitController {
                 return new ApiResponse(page, Optional.empty()); // 最後のページ
             }
         });
+    }
+
+    private void log(String message) {
+        System.out.printf("[%-18s] %s\n", LocalTime.now(), message);
     }
 
     static record ApiResponse(int currentPage, Optional<Integer> nextPage) {
